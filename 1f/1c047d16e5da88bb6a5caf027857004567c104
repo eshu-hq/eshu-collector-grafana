@@ -1,0 +1,34 @@
+.github/workflows/ci.yml
+  h_78a442cba0b3e6 1-19
+README.md
+  h_78a442cba0b3e6 3-7,9-12,14-102
+grafana/claimid.go
+  h_78a442cba0b3e6 19-22
+grafana/endpoint_operation_test.go
+  h_78a442cba0b3e6 1-51
+grafana/envelope_test.go
+  h_78a442cba0b3e6 1-253
+grafana/extraction_prep_golden_test.go
+  h_78a442cba0b3e6 1-57
+grafana/http_client_test.go
+  h_78a442cba0b3e6 1-350
+grafana/truncation_test.go
+  h_78a442cba0b3e6 1-274
+grafana/types.go
+  h_78a442cba0b3e6 113-115
+grant/grant.go
+  h_78a442cba0b3e6 43,46-48,55-63,109-111,129-130,136
+grant/grant_test.go
+  h_78a442cba0b3e6 60,76-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f1c047d16e5da88bb6a5caf027857004567c104",
+  "prompts": {},
+  "humans": {
+    "h_78a442cba0b3e6": {
+      "author": "Allen Sanabria <asanabria6910@gmail.com>"
+    }
+  }
+}
