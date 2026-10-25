@@ -1,0 +1,46 @@
+grafana/metrics.go
+  h_78a442cba0b3e6 1-90
+grafana/claimid_test.go
+  h_78a442cba0b3e6 1-28
+grafana/claimid.go
+  h_78a442cba0b3e6 1-26
+README.md
+  h_78a442cba0b3e6 1-86
+go.sum
+  h_78a442cba0b3e6 1-16
+grafana/types.go
+  h_78a442cba0b3e6 1-235
+grafana/schema.go
+  h_78a442cba0b3e6 1-71
+grafana/client.go
+  h_78a442cba0b3e6 1-431
+grafana/source_collect_test.go
+  h_78a442cba0b3e6 1-243
+grant/grant_test.go
+  h_78a442cba0b3e6 1-74
+grant/grant.go
+  h_78a442cba0b3e6 1-132
+grafana/source.go
+  h_78a442cba0b3e6 1-274
+grafana/envelope.go
+  h_78a442cba0b3e6 1-397
+grafana/extraction_prep_mirror_test.go
+  h_78a442cba0b3e6 1-272
+go.mod
+  h_78a442cba0b3e6 1-8
+grafana/redaction.go
+  h_78a442cba0b3e6 1-66
+grafana/doc.go
+  h_78a442cba0b3e6 1-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d575cf5b33dbaece3b14012ae92b749dea9a1d8",
+  "prompts": {},
+  "humans": {
+    "h_78a442cba0b3e6": {
+      "author": "Allen Sanabria <asanabria6910@gmail.com>"
+    }
+  }
+}
