@@ -40,14 +40,25 @@ const (
 	MaxLifetime = 720 * time.Hour
 )
 
-// CoveredKinds lists the core-owned fact kinds this producer may emit
+// coveredKinds lists the core-owned fact kinds this producer may emit
 // after cutover. Declared Grafana evidence stays core/GitOps-owned and is
 // NOT covered: the extracted collector must never emit declared kinds.
-var CoveredKinds = []string{
+// Unexported so no importer can shrink or widen coverage and still pass
+// Check; read a copy through CoveredKinds.
+var coveredKinds = []string{
 	"observability.source_instance",
 	"observability.observed_dashboard",
 	"observability.observed_rule",
 	"observability.coverage_warning",
+}
+
+// CoveredKinds returns a copy of the covered kind set. The copy defends
+// the fail-closed claim: mutating the returned slice cannot change what
+// Check enforces.
+func CoveredKinds() []string {
+	out := make([]string, len(coveredKinds))
+	copy(out, coveredKinds)
+	return out
 }
 
 // ErrDenied is the fail-closed denial returned when no usable core-issued
@@ -95,6 +106,9 @@ func Check(g Grant, now time.Time) error {
 	if g.IssuedAt.IsZero() {
 		return fmt.Errorf("%w: issued_at is required", ErrDenied)
 	}
+	if g.IssuedAt.After(now) {
+		return fmt.Errorf("%w: grant issued in the future", ErrDenied)
+	}
 	if g.ExpiresAt.IsZero() || !g.ExpiresAt.After(now) {
 		return fmt.Errorf("%w: grant is expired or has no expiry", ErrDenied)
 	}
@@ -112,14 +126,14 @@ func Check(g Grant, now time.Time) error {
 // Extra kinds are denied: after cutover this producer owns only live
 // observed evidence, never declared kinds.
 func checkCoverage(kinds []KindGrant) error {
-	if len(kinds) != len(CoveredKinds) {
-		return fmt.Errorf("%w: grant covers %d kinds, want %d", ErrDenied, len(kinds), len(CoveredKinds))
+	if len(kinds) != len(coveredKinds) {
+		return fmt.Errorf("%w: grant covers %d kinds, want %d", ErrDenied, len(kinds), len(coveredKinds))
 	}
 	covered := make(map[string]string, len(kinds))
 	for _, kind := range kinds {
 		covered[kind.Kind] = strings.Join(kind.SchemaVersions, ",")
 	}
-	for _, want := range CoveredKinds {
+	for _, want := range coveredKinds {
 		versions, ok := covered[want]
 		if !ok {
 			return fmt.Errorf("%w: grant does not cover kind %q", ErrDenied, want)

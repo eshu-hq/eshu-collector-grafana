@@ -110,6 +110,9 @@ const (
 )
 
 // EnvelopeContext carries durable fact-envelope identity for Grafana facts.
+// FencingToken is host-set from claim.fencing_token at cutover (the host
+// enforces fencing; this repo only carries the value); see README
+// "Deferred to the host".
 type EnvelopeContext struct {
 	ScopeID             string
 	GenerationID        string

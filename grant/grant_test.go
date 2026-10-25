@@ -57,6 +57,7 @@ func TestCheckFailsClosed(t *testing.T) {
 		{"missing expiry denies", func(g *Grant) { g.ExpiresAt = time.Time{} }},
 		{"non-positive lifetime denies", func(g *Grant) { g.ExpiresAt = g.IssuedAt }},
 		{"overlong lifetime denies", func(g *Grant) { g.ExpiresAt = g.IssuedAt.Add(721 * time.Hour) }},
+		{"future-issued denies", func(g *Grant) { g.IssuedAt = now.Add(time.Hour) }},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -70,5 +71,21 @@ func TestCheckFailsClosed(t *testing.T) {
 				t.Errorf("Check() = nil, want fail-closed denial for %s", tt.name)
 			}
 		})
+	}
+}
+
+func TestCoveredKindsCopyCannotWeakenCheck(t *testing.T) {
+	t.Parallel()
+
+	mutated := CoveredKinds()
+	mutated[0] = "observability.declared_dashboard"
+	mutated = append(mutated, "observability.extra_kind")
+
+	now := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	if err := Check(validTestGrant(), now); err != nil {
+		t.Fatalf("Check(valid) after mutating the CoveredKinds() copy = %v, want nil (copy must not affect enforcement)", err)
+	}
+	if got := CoveredKinds(); got[0] != "observability.source_instance" || len(got) != 4 {
+		t.Fatalf("CoveredKinds() = %q, want the intact 4-kind set", got)
 	}
 }
