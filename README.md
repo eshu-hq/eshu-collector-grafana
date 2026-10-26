@@ -18,14 +18,14 @@ Exact published pins from `eshu-hq/eshu-sdk` — never `@latest`, no
 
 | Module | Pin |
 |---|---|
-| `github.com/eshu-hq/eshu-sdk/collector` | `v0.1.0-rc.2` |
-| `github.com/eshu-hq/eshu-sdk/factschema` | `v0.1.0-rc.2` |
+| `github.com/eshu-hq/eshu-sdk/collector` | `v0.1.0-rc.3` |
+| `github.com/eshu-hq/eshu-sdk/factschema` | `v0.1.0-rc.5` |
 
 Verify resolution before any pin bump:
 
 ```bash
-GOPROXY=proxy.golang.org go list -m github.com/eshu-hq/eshu-sdk/collector@v0.1.0-rc.2
-GOPROXY=proxy.golang.org go list -m github.com/eshu-hq/eshu-sdk/factschema@v0.1.0-rc.2
+GOPROXY=proxy.golang.org go list -m github.com/eshu-hq/eshu-sdk/collector@v0.1.0-rc.3
+GOPROXY=proxy.golang.org go list -m github.com/eshu-hq/eshu-sdk/factschema@v0.1.0-rc.5
 ```
 
 ## Layout
@@ -73,7 +73,7 @@ to equal the claim's, so anything else fails closed at the edge.
 
 ## Open gaps
 
-- P1: the published factschema `v0.1.0-rc.2` has no per-kind
+- P1: the published factschema `v0.1.0-rc.5` has no per-kind
   schema-version map or `ValidateSchemaVersion` admission helper
   (compare `ObservabilitySchemaVersion` / `ValidateSchemaVersion` in
   eshu-hq/eshu `go/internal/facts`). The locked `1.0.0` map lives in
