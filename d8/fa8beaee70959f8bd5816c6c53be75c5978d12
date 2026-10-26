@@ -1,0 +1,20 @@
+README.md
+  h_78a442cba0b3e6 21-22,27-28,76
+go.mod
+  h_78a442cba0b3e6 6-7
+go.sum
+  h_78a442cba0b3e6 5-8
+grafana/schema.go
+  h_78a442cba0b3e6 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d8fa8beaee70959f8bd5816c6c53be75c5978d12",
+  "prompts": {},
+  "humans": {
+    "h_78a442cba0b3e6": {
+      "author": "Allen Sanabria <asanabria6910@gmail.com>"
+    }
+  }
+}
