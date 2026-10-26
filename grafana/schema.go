@@ -13,7 +13,7 @@ import (
 // SchemaVersionV1 is the first observability evidence schema. All four
 // emitted kinds are at 1.0.0 today (EXTRACTION_PREP census §4).
 //
-// P1 SDK GAP: the published factschema v0.1.0-rc.2 module exposes the fact
+// P1 SDK GAP: the published factschema v0.1.0-rc.5 module exposes the fact
 // kind strings (factschema.FactKindObservability*) and the contract payload
 // encoders, but no per-kind schema-version map and no ValidateSchemaVersion
 // admission helper (compare go/internal/facts/observability.go
