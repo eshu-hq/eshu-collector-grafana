@@ -37,3 +37,5 @@ race:
 	@total=$$(go tool cover -func=coverage.out | awk '/^total:/ { gsub(/%/, "", $$3); print $$3 }'); \
 	echo "total coverage: $${total}% (floor $(COVERAGE_FLOOR)%)"; \
 	awk -v total="$$total" -v floor="$(COVERAGE_FLOOR)" 'BEGIN { if (total + 0 < floor + 0) { printf "coverage %.1f%% is below floor %s%%\n", total, floor; exit 1 } }'
+
+# probe-makefile: lane-selection check, will be discarded
