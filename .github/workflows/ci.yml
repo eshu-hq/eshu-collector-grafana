@@ -251,7 +251,8 @@ jobs:
     timeout-minutes: 10
     # PR scans run with a read-only token: issue filing lives in
     # govulncheck-report, which carries issues:write and runs on schedule
-    # only when this scan failed.
+    # only when this scan failed. workflow_dispatch also runs the report
+    # job (download only) for pre-merge proof.
     permissions:
       contents: read
     outputs:
@@ -269,8 +270,8 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           go install golang.org/x/vuln/cmd/govulncheck@v${{ env.GOVULNCHECK_VERSION }}
           govulncheck ./... | tee govulncheck.txt
-      - name: Upload scan report (schedule only)
-        if: always() && github.event_name == 'schedule' && hashFiles('govulncheck.txt') != ''
+      - name: Upload scan report (schedule and dispatch only)
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && hashFiles('govulncheck.txt') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: govulncheck-${{ github.sha }}
@@ -279,15 +280,19 @@ jobs:
 
   govulncheck-report:
     needs: [govulncheck]
-    if: always() && github.event_name == 'schedule' && needs.govulncheck.outputs.scan-outcome == 'failure'
+    if: always() && ((github.event_name == 'schedule' && needs.govulncheck.outputs.scan-outcome == 'failure') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The only job with issues:write. No checkout: gh is preinstalled on
-    # the runner and the report arrives via the run artifact below.
+    # The only job with issues:write. A checkout is required even though
+    # the report arrives via the run artifact: `gh run download` resolves
+    # the repo from the git remote and fails without a git dir (see #11).
+    # workflow_dispatch also runs this job (issue filing stays
+    # schedule-only) so the download path gets pre-merge proof.
     permissions:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Download scan report
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -295,6 +300,7 @@ jobs:
           set -euo pipefail
           gh run download "$GITHUB_RUN_ID" -n "govulncheck-${{ github.sha }}" --dir .
       - name: File or update tracking issue (schedule only)
+        if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -321,7 +327,7 @@ jobs:
     timeout-minutes: 15
     # Fork PRs run this scan with a read-only token: SARIF upload lives in
     # gosec-sarif, which carries security-events:write and runs on
-    # push/schedule only when this scan produced a report.
+    # push/schedule/dispatch when this scan produced a report.
     permissions:
       contents: read
     outputs:
@@ -357,8 +363,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -f gosec.sarif ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
-      - name: Upload SARIF artifact (push/schedule only)
-        if: always() && (github.event_name == 'push' || github.event_name == 'schedule') && hashFiles('gosec.sarif') != ''
+      - name: Upload SARIF artifact (push/schedule/dispatch only)
+        if: always() && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && hashFiles('gosec.sarif') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gosec-${{ github.sha }}
@@ -367,15 +373,19 @@ jobs:
 
   gosec-sarif:
     needs: [gosec]
-    if: always() && (github.event_name == 'push' || github.event_name == 'schedule') && needs.gosec.outputs.has-sarif == 'true'
+    if: always() && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.gosec.outputs.has-sarif == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The only job with security-events:write. No checkout: the SARIF
-    # report arrives via the run artifact below.
+    # The only job with security-events:write. A checkout is required even
+    # though the SARIF report arrives via the run artifact: `gh run
+    # download` resolves the repo from the git remote and fails without a
+    # git dir (see #11). workflow_dispatch also runs this job so the
+    # download path gets pre-merge proof.
     permissions:
       contents: read
       security-events: write
     steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Download SARIF report
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
