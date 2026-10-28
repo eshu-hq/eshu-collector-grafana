@@ -28,6 +28,9 @@ the `lint` lane); split before approaching the limit.
 ## What CI runs on your PR
 
 `.github/workflows/ci.yml` picks lanes by changed paths: docs-only PRs run
-no lane, Go changes run `lint`/`test`/`race`, dependency changes add
-`govulncheck`, shell scripts run `shell`. `ci-complete` is the only required
-context — it passes when lanes were legitimately skipped.
+no lane, Go changes run `lint`/`test`/`race`, fixture files tests read run
+`test`, dependency changes add `govulncheck`, shell scripts run `shell`, and
+anything unclassified (the `misc` catch-all, e.g. `Makefile`) runs
+`lint`/`test`/`race`. Pushes, schedules, and dispatches run every lane.
+`ci-complete` is the only required context — it passes when lanes were
+legitimately skipped.

@@ -10,11 +10,18 @@
 # pays for lanes its paths can affect:
 #   docs only (*.md, LICENSE) .... no lanes, ci-complete succeeds
 #   Go sources (**/*.go) .......... lint, test, race (+ coverage artifact)
+#   fixtures (testdata/**, **/*.json|yaml|yml, manifest.yaml,
+#     *.example.*) ................ test only (files tests read; none exist
+#                                  today, so this class is future-proofing)
 #   go.mod/go.sum/.golangci.yml .... lint, test, race, govulncheck
 #   .github/workflows/** .......... actionlint, plus lint, test, race
 #   shell (**/*.sh, none today) .... shell only
-# Push to main runs every lane. The weekly schedule runs govulncheck and
-# gosec; govulncheck findings open or update an issue.
+#   anything else (Makefile, .github/dependabot.yml, future files):
+#     the `misc` catch-all runs lint, test, race (fail closed per the epic).
+# Pushes, schedules, and dispatches skip `changes` and run every lane: each
+# lane treats a non-successful changes result as "run" (fail closed), so no
+# event can go green with zero lanes on real changes. Scheduled govulncheck
+# findings open or update an issue.
 name: ci
 
 on:
@@ -42,6 +49,9 @@ env:
 
 jobs:
   changes:
+    # Path selection runs once, on pull requests. Pushes, schedules, and
+    # dispatches skip this job and run every lane: each lane treats a
+    # non-successful changes result as "run" (fail closed).
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -50,9 +60,11 @@ jobs:
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
       go: ${{ steps.filter.outputs.go }}
+      fixtures: ${{ steps.filter.outputs.fixtures }}
       deps: ${{ steps.filter.outputs.deps }}
       workflow: ${{ steps.filter.outputs.workflow }}
       shell: ${{ steps.filter.outputs.shell }}
+      misc: ${{ steps.filter.outputs.misc }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -60,12 +72,25 @@ jobs:
       - uses: dorny/paths-filter@15192bc058cc28a13dbf6cde61f19e18988b7af6 # v3
         id: filter
         with:
+          # Needed so the `misc` catch-all below can use `!` negations;
+          # groups without negations behave exactly as before.
+          predicate-quantifier: 'some-with-excludes'
           filters: |
             docs:
               - '**/*.md'
               - 'LICENSE*'
             go:
               - '**/*.go'
+            fixtures:
+              # Files tests may read that are not Go sources. None exist in
+              # tree today (no testdata/, JSON, YAML, manifest, or example
+              # files), so this class is future-proofing wired to `test`.
+              - 'testdata/**'
+              - '**/*.json'
+              - '**/*.yaml'
+              - '**/*.yml'
+              - 'manifest.yaml'
+              - '*.example.*'
             deps:
               - 'go.mod'
               - 'go.sum'
@@ -74,10 +99,30 @@ jobs:
               - '.github/workflows/**'
             shell:
               - '**/*.sh'
+            misc:
+              # Fail closed per the epic: anything not classified above runs
+              # lint+test+race. Docs stay negated so docs-only PRs keep
+              # skipping every lane; every classified pattern is negated too
+              # so narrow lanes (fixtures/shell) keep their shape.
+              - '**'
+              - '!**/*.md'
+              - '!LICENSE*'
+              - '!**/*.go'
+              - '!testdata/**'
+              - '!**/*.json'
+              - '!**/*.yaml'
+              - '!**/*.yml'
+              - '!manifest.yaml'
+              - '!*.example.*'
+              - '!go.mod'
+              - '!go.sum'
+              - '!.golangci.yml'
+              - '!.github/workflows/**'
+              - '!**/*.sh'
 
   lint:
     needs: [changes]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true'))
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.misc == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -97,6 +142,7 @@ jobs:
         run: go mod tidy -diff
       - name: 500-line file cap
         run: |
+          set -euo pipefail
           over=$(git ls-files '*.go' | while IFS= read -r f; do
             n=$(wc -l < "$f")
             if [ "$n" -gt 500 ]; then printf '%s (%s lines)\n' "$f" "$n"; fi
@@ -110,6 +156,7 @@ jobs:
       - name: Install actionlint
         if: github.event_name != 'pull_request' || needs.changes.outputs.workflow == 'true'
         run: |
+          set -euo pipefail
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           go install github.com/rhysd/actionlint/cmd/actionlint@v${{ env.ACTIONLINT_VERSION }}
       - name: actionlint
@@ -118,7 +165,7 @@ jobs:
 
   test:
     needs: [changes]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true'))
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true' || needs.changes.outputs.fixtures == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.misc == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -135,7 +182,7 @@ jobs:
 
   race:
     needs: [changes]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true'))
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.misc == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -155,6 +202,7 @@ jobs:
           retention-days: 14
       - name: Coverage summary and floor
         run: |
+          set -euo pipefail
           total=$(go tool cover -func=coverage.out | awk '/^total:/ { gsub(/%/, "", $3); print $3 }')
           {
             echo "## Coverage"
@@ -170,7 +218,7 @@ jobs:
 
   shell:
     needs: [changes]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.changes.outputs.shell == 'true')
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.shell == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -180,6 +228,7 @@ jobs:
       - name: shellcheck
         shell: bash
         run: |
+          set -euo pipefail
           curl -fsSL -o /tmp/shellcheck.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
           echo "${SHELLCHECK_SHA256}  /tmp/shellcheck.tar.xz" | sha256sum -c -
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp
@@ -194,7 +243,7 @@ jobs:
 
   govulncheck:
     needs: [changes]
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && needs.changes.outputs.deps == 'true')
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.deps == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -210,6 +259,7 @@ jobs:
         id: scan
         continue-on-error: ${{ github.event_name == 'schedule' }}
         run: |
+          set -euo pipefail
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           go install golang.org/x/vuln/cmd/govulncheck@v${{ env.GOVULNCHECK_VERSION }}
           govulncheck ./... | tee govulncheck.txt
@@ -218,8 +268,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           title="govulncheck findings ($(date -u +%F))"
-          findings=$(cat govulncheck.txt)
+          if [ -f govulncheck.txt ]; then
+            findings=$(cat govulncheck.txt)
+          else
+            findings="(govulncheck report unavailable — the scan step produced no output file)"
+          fi
           body="Weekly govulncheck run $GITHUB_RUN_ID reported findings. See the run log for the full report."
           body="$body Findings: $findings"
           number=$(gh issue list --search "$title in:title" --state open --json number --query '.[0].number')
@@ -231,7 +286,7 @@ jobs:
 
   gosec:
     needs: [changes]
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true'))
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -248,12 +303,19 @@ jobs:
         id: scan
         continue-on-error: true
         run: |
+          set -euo pipefail
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
           go install github.com/securego/gosec/v2/cmd/gosec@v${{ env.GOSEC_VERSION }}
           gosec -fmt sarif -out gosec.sarif ./...
       - name: Report findings
         if: always()
         run: |
+          set -euo pipefail
+          if [ ! -f gosec.sarif ]; then
+            echo "gosec.sarif missing (scan step produced no output) — advisory lane stays green" >> "$GITHUB_STEP_SUMMARY"
+            echo "gosec.sarif missing (scan step produced no output) — advisory lane stays green"
+            exit 0
+          fi
           count=$(python3 -c "import json; print(sum(len(r.get('results', [])) for r in json.load(open('gosec.sarif'))['runs']))")
           echo "gosec findings: $count (advisory — triaged in the Security tab, never blanket-excluded)" >> "$GITHUB_STEP_SUMMARY"
           echo "gosec findings: $count (advisory)"
@@ -272,6 +334,7 @@ jobs:
     steps:
       - name: Gate
         run: |
+          set -euo pipefail
           results='${{ toJSON(needs) }}'
           echo "$results"
           if echo "$results" | grep -qE '"result": "(failure|cancelled)"'; then
