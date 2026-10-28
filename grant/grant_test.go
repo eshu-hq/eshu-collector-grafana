@@ -80,6 +80,9 @@ func TestCoveredKindsCopyCannotWeakenCheck(t *testing.T) {
 	mutated := CoveredKinds()
 	mutated[0] = "observability.declared_dashboard"
 	mutated = append(mutated, "observability.extra_kind")
+	if len(mutated) != len(coveredKinds)+1 {
+		t.Fatalf("len(mutated copy) = %d, want %d", len(mutated), len(coveredKinds)+1)
+	}
 
 	now := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
 	if err := Check(validTestGrant(), now); err != nil {

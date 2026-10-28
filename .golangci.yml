@@ -1,0 +1,19 @@
+# Org lint set for eshu-hq collector repos, pinned to golangci-lint v2.12.2
+# (the version Eshu installs in .github/workflows/test.yml and the version
+# this repo's CI installs). Linters are explicitly opted in so the set is
+# grep-able from this file; `default: none` keeps a vendor default from
+# silently adding a linter the org has not signed off on.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+    - errcheck
+
+formatters:
+  enable:
+    - gofumpt
