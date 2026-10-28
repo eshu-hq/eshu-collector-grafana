@@ -163,7 +163,7 @@ jobs:
             echo ""
             echo "| Package | Statements |"
             echo "| --- | --- |"
-            grep -v '^mode:' coverage.out | awk '{ f=$1; sub(/:[0-9]+\.[0-9]+,[0-9]+\.[0-9]+$/, "", f); pkg=f; sub(/\/[^/]+$/, "", pkg); s[pkg]+=$2; if ($3 > 0) c[pkg]+=$2 } END { for (p in s) printf "| \`%s\` | %.1f%% (%d/%d) |\n", p, 100*c[p]/s[p], c[p], s[p] }' | sort
+            grep -v '^mode:' coverage.out | awk '{ f=$1; sub(/:[0-9]+\.[0-9]+,[0-9]+\.[0-9]+$/, "", f); pkg=f; sub(/\/[^/]+$/, "", pkg); s[pkg]+=$2; if ($3 > 0) c[pkg]+=$2 } END { for (p in s) printf "| %s | %.1f%% (%d/%d) |\n", p, 100*c[p]/s[p], c[p], s[p] }' | sort
           } >> "$GITHUB_STEP_SUMMARY"
           echo "total coverage: ${total}% (floor ${COVERAGE_FLOOR}%)"
           awk -v total="$total" -v floor="$COVERAGE_FLOOR" 'BEGIN { if (total + 0 < floor + 0) { printf "coverage %.1f%% is below floor %s%%\n", total, floor; exit 1 } }'
