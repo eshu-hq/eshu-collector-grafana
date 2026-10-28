@@ -3,6 +3,9 @@
 # this repo's CI installs). Linters are explicitly opted in so the set is
 # grep-able from this file; `default: none` keeps a vendor default from
 # silently adding a linter the org has not signed off on.
+#
+# gosimple is not named on purpose: golangci-lint v2 has no gosimple
+# linter, its S-series checks run inside staticcheck.
 version: "2"
 
 linters:
