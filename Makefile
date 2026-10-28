@@ -6,9 +6,11 @@
 # tests land. The finish line is 90%.
 
 GOLANGCI_VERSION ?= 2.12.2
+ACTIONLINT_VERSION ?= 1.7.12
 COVERAGE_FLOOR ?= 91.5
 
 GOLANGCI := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v$(GOLANGCI_VERSION)
+ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@v$(ACTIONLINT_VERSION)
 
 .PHONY: ci lint test race
 
@@ -18,6 +20,7 @@ lint:
 	go vet ./...
 	$(GOLANGCI) run ./...
 	$(GOLANGCI) fmt --diff ./...
+	$(ACTIONLINT)
 	go mod tidy -diff
 	@over=$$(git ls-files '*.go' | while IFS= read -r f; do \
 		n=$$(wc -l < "$$f"); \

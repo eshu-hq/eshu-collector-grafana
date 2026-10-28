@@ -146,3 +146,17 @@ func TestSchemaVersionRejectsUnknownKind(t *testing.T) {
 		t.Error("CheckSchemaVersion(declared, 1.0.0) = nil, want rejection")
 	}
 }
+
+func TestSchemaVersionAdmitsEmittedKindAtLockedVersion(t *testing.T) {
+	t.Parallel()
+
+	if version, ok := SchemaVersionForKind(KindObservedDashboard); !ok || version != SchemaVersionV1 {
+		t.Errorf("SchemaVersionForKind(emitted) = %q, %v; want %q, true", version, ok, SchemaVersionV1)
+	}
+	if err := CheckSchemaVersion(KindObservedDashboard, SchemaVersionV1); err != nil {
+		t.Errorf("CheckSchemaVersion(emitted, 1.0.0) = %v, want nil", err)
+	}
+	if err := CheckSchemaVersion(KindObservedDashboard, "2.0.0"); err == nil {
+		t.Error("CheckSchemaVersion(emitted, 2.0.0) = nil, want rejection")
+	}
+}

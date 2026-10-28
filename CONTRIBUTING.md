@@ -4,8 +4,12 @@
 
 Run `make ci` before pushing. It runs the same `lint`, `test`, and `race`
 lane commands CI runs (vet, org golangci-lint set, gofumpt format check,
-`go mod tidy -diff`, the 500-line file cap, build, tests, race with the
-coverage floor). CI stays authoritative; `make ci` is the fast local floor.
+actionlint at the pinned `ACTIONLINT_VERSION`, `go mod tidy -diff`, the
+500-line file cap, build, tests, race with the coverage floor). CI stays
+authoritative; `make ci` is the fast local floor. `make lint` runs
+actionlint unconditionally, while the CI lint lane scopes it to workflow
+changes — local is the stricter superset, so a workflow-syntax break fails
+before push.
 
 Need a single lane? `make lint`, `make test`, or `make race` run on their own.
 
