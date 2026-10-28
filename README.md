@@ -100,3 +100,5 @@ design; the host owns it at cutover (tracked on eshu-hq/eshu#8857):
   the host service wires it to claim acquisition (in-tree `service.go:82`
   equivalent). `EnvelopeContext.FencingToken` is likewise host-set from
   `claim.fencing_token`.
+
+<!-- probe-docs: lane-selection check, will be discarded -->
