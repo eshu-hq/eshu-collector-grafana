@@ -1,102 +1,65 @@
 # eshu-collector-grafana
 
-Extracted Grafana collector producer for [eshu-hq/eshu#8857](https://github.com/eshu-hq/eshu/issues/8857)
-(collector-grafana extraction, part of epic #6707). Emission half only:
-this repository fetches bounded live Grafana metadata and returns a
-`collector-sdk/v1alpha1` Result per host claim. Core keeps admission,
-projection, persistence, claim mutation, fencing, and the status read.
+Status: pre-release library. It's not the live Grafana producer for Eshu yet.
 
-Refs #8857. This repository does not close that issue: cutover stays gated
-by #4047 with production acceptance NOT_CHECKED, and no pair is a
-qualified consumer/core combination yet (see SDK Compatibility in
-eshu-hq/eshu docs).
+This repo is a Go library, plain and simple. It reads live Grafana metadata and hands Eshu small checked records (we call them facts) that Eshu can store as evidence. There's no program here for you to run, and that's on purpose. A host inside Eshu core imports the packages, passes in one bounded work request (a claim), and gets one result back.
 
-## Pins
-
-Exact published pins from `eshu-hq/eshu-sdk` — never `@latest`, no
-`replace` or workspace directives:
-
-| Module | Pin |
-|---|---|
-| `github.com/eshu-hq/eshu-sdk/collector` | `v0.1.0-rc.3` |
-| `github.com/eshu-hq/eshu-sdk/factschema` | `v0.1.0-rc.5` |
-
-Verify resolution before any pin bump:
-
-```bash
-GOPROXY=proxy.golang.org go list -m github.com/eshu-hq/eshu-sdk/collector@v0.1.0-rc.3
-GOPROXY=proxy.golang.org go list -m github.com/eshu-hq/eshu-sdk/factschema@v0.1.0-rc.5
+```mermaid
+flowchart LR
+    H["Eshu core host"] -->|"one claim"| L["This library"]
+    L -->|"three GET reads"| G["Grafana API"]
+    L -->|"one result with facts"| H
 ```
 
-## Layout
+Same picture in words: the host gives this library a claim, the library asks Grafana what it has, and the host receives facts to store. Nothing here runs on its own schedule.
 
-- `grafana/` — the producer: bounded REST fetch (`client.go`), four
-  envelope constructors (`envelope.go`), claim-to-Result fan-out
-  (`source.go`), metadata-only redaction (`redaction.go`), kind/schema
-  admission (`schema.go`), claim-ID minting (`claimid.go`), and a
-  host-wired metrics seam (`metrics.go`).
-- `grant/` — fail-closed stub enforcing the core-issued producer grant
-  draft (`producer-grant.manifest.DRAFT.yaml` in eshu-hq/eshu,
-  `go/cmd/collector-grafana`) at every emission. Until core issues a
-  grant, the zero Grant is denied and `Collect` fails closed before any
-  provider contact.
+## Should you reach for this?
 
-## Parity evidence
+Reach for it if you're building or testing the Eshu host path that tracks live dashboards, folders, datasources, and alert rules. It answers questions like "what dashboards does that Grafana actually serve right now?"
 
-- Census mirror: `grafana/extraction_prep_mirror_test.go` ports the
-  in-tree extraction PREP mirror (admission at 1.0.0, determinism,
-  generation rebind, redaction sentinel, fail-closed hostile inputs).
-  `TestClaimIDNamespace` ports the `grafana-claim-` namespace case.
-- Stable keys: `kind:generationID:identity.StableID(kind, identity)` is
-  byte-stable with the in-tree scheme. Independent oracle: Python
-  `sha256('{"fact_type":"observability.source_instance","identity":...}')`
-  yields `4c1e93a9…0b723a9`, identical to the SDK helper output.
-- Contract payloads: `observability/v1` struct fields are identical
-  between the in-tree `sdk/go/factschema` source and the pinned module,
-  and the same `EncodeObservability*` entry points merge payloads.
-- SDK self-check: `TestCollectEmitsValidatorCleanResult` and
-  `TestCollectPartialReadStaysPartial` run emitted Results through the
-  published SDK's own `collector.NewValidator(...).ValidateResult`,
-  including its sensitive-payload-key gate.
-- In-tree `FactID` (host-assigned at admission) and numeric
-  `FencingToken` (host-enforced from `claim.fencing_token`) have no
-  emission-half counterpart and are intentionally not ported.
+Skip it if you want a standalone exporter, a dashboard backup tool, or anything that writes to Grafana. This library can't run without a host, it never writes to Grafana, and it deliberately ignores dashboard JSON, datasource URLs, and credentials. Those never belong in a fact.
 
-## Boundaries (core-owned, not ported)
+## The shortest way in
 
-Instance selection, the heartbeat-under-lease guard, the Postgres commit
-boundary, cassette replay, and `eshu_dp_grafana_*` signals stay in core.
-Telemetry records against the local `MetricsRecorder` seam; the host
-adapts it to its own signals. `source_system` binding is strict
-(`grafana` exactly): the SDK host validator requires fact source_system
-to equal the claim's, so anything else fails closed at the edge.
+Add it to your host module and call it once per claim:
 
-## Open gaps
+```bash
+go get github.com/eshu-hq/eshu-collector-grafana
+```
 
-- P1: the published factschema `v0.1.0-rc.5` has no per-kind
-  schema-version map or `ValidateSchemaVersion` admission helper
-  (compare `ObservabilitySchemaVersion` / `ValidateSchemaVersion` in
-  eshu-hq/eshu `go/internal/facts`). The locked `1.0.0` map lives in
-  `grafana/schema.go` until the SDK gains one.
-- P1: `grant.Check` verifies shape, identity, scope, kind coverage,
-  schema versions, and expiry only — no core issuance-signature
-  verification exists yet (`grant/grant.go`). Issuance is core-owned.
-- Note: no `SHIM_MAP.md` exists in `go/cmd/collector-grafana`; the shim
-  mapping used here was derived from `EXTRACTION_PREP.md` plus the
-  in-tree `collector/sdk` sources and is recorded in the PR body.
+```go
+import (
+    "github.com/eshu-hq/eshu-collector-grafana/grafana"
+    "github.com/eshu-hq/eshu-collector-grafana/grant"
+)
+```
 
-## Deferred to the host (NOT_CHECKED here)
+You build a source with `grafana.NewClaimedSource`, then call `Collect(ctx, claim, grant)` for each claim. If the grant is missing or wrong, the call fails before anything talks to Grafana, which is exactly what you want. Full field-by-field notes live in [the configuration reference](docs/reference/configuration.md), and the wiring walkthrough in [the usage guide](docs/guides/usage.md).
 
-The following in-tree surface has no counterpart in this repository by
-design; the host owns it at cutover (tracked on eshu-hq/eshu#8857):
+## A quick tour of the docs
 
-- `cmd/` entrypoint: `main`/`service`/`config` wiring, env-token intake,
-  cassette replay, heartbeat-under-lease, and multi-instance fail-closed
-  (`EXTRACTION_PREP.md` §1). This repo ships the emission library only.
-- OTEL span seam: in-tree `startObserve`/`startFetch` spans are not
-  ported; telemetry records against the local `MetricsRecorder` seam
-  (`metrics.go`) and the host adapts it to its own signals.
-- `newClaimID` (`claimid.go`) is exercised only by its unit test here;
-  the host service wires it to claim acquisition (in-tree `service.go:82`
-  equivalent). `EnvelopeContext.FencingToken` is likewise host-set from
-  `claim.fencing_token`.
+| Start here when… | Read |
+| --- | --- |
+| you want to know how a claim becomes facts | [docs/architecture](docs/architecture/README.md) |
+| you're wiring the library into a host | [the usage guide](docs/guides/usage.md) |
+| you're about to push a change | [docs/contributing](docs/contributing/README.md) |
+| you want the full map | [docs/README.md](docs/README.md) |
+| you learn from pictures | [docs/diagrams](docs/diagrams/README.md) |
+
+Package comments in `grafana/doc.go` and `grant/grant.go` are worth a look too. They're short.
+
+## Neighbors worth knowing
+
+- [eshu](https://github.com/eshu-hq/eshu): core, plus the host that will import this library and own admission, storage, and claims.
+- [eshu-sdk](https://github.com/eshu-hq/eshu-sdk): the collector and fact-schema modules pinned in [the facts reference](docs/reference/facts.md).
+- [eshu-deploy](https://github.com/eshu-hq/eshu-deploy): deployment for Eshu components. Nothing in this repo deploys by itself.
+
+## Hacking on it
+
+Run `make ci` before you push. That covers lint, tests, and the race lane with its coverage floor. Details sit in [CONTRIBUTING.md](CONTRIBUTING.md) and the closing notes of [the usage guide](docs/guides/usage.md).
+
+## Contributing, security, and license
+
+Contributions go through [CONTRIBUTING.md](CONTRIBUTING.md). Please keep Go files under 500 lines and don't lower the coverage floor.
+
+There's no `SECURITY.md` and no `LICENSE` file in this repo yet. Source files carry an SPDX MIT header, so treat the code as MIT and don't go looking for a license file that isn't there.
