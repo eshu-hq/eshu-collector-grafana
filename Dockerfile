@@ -1,0 +1,27 @@
+# Standalone Grafana signal collector image: a static pure-Go binary, built
+# reproducibly with -trimpath, on a base with no shell and no package
+# manager. With no arguments (or --sdk-stdio) the binary serves one claim: it
+# reads one collector-sdk/v1alpha1 request from stdin and writes one result
+# to stdout.
+#
+# The request carries the claim, the activation config, and the
+# host-delivered core-issued producer grant together. Without a usable
+# grant the claim ends terminal with zero facts: an unwired host emits no
+# evidence.
+#
+#   docker run -i IMAGE < request.json    serves one claim from stdin
+#
+# Base digests resolved live against the registries; re-resolve them when
+# bumping either base.
+FROM golang:1.26.11-alpine@sha256:ae52b5bc6ed045a9ed26ab03dc19327a802a9cc9aa8b27ed57f5c6b60579b0bb AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o /out/collector ./cmd/collector
+
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+COPY --from=build /out/collector /usr/local/bin/collector
+USER 65532:65532
+ENTRYPOINT ["/usr/local/bin/collector"]
+CMD ["--sdk-stdio"]

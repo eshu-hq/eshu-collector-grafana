@@ -1,0 +1,39 @@
+# Example component activation config for the Grafana collector.
+# Copy it, replace the placeholder host and scope, and point the environment
+# variables at real credentials. It holds no secrets: token_env NAMES the
+# environment variable the worker process exports; its value never appears
+# here, in facts, in logs, or in statuses.
+#
+# Cutover identity. When this activation replaces the in-tree
+# collector-grafana, these values must equal the in-tree ones, or every
+# stable fact key changes:
+#   targets[].scope_id   = the in-tree target's scope_id
+#   targets[].instance_id = the in-tree target's instance_id
+#   host.sourceSystem     = the in-tree source system (grafana)
+host:
+  sourceSystem: grafana
+  scope:
+    id: grafana:parity:prod
+    kind: grafana_instance
+process:
+  command: ./collector
+  args:
+    - --sdk-stdio
+  stdout_limit_bytes: 67108864
+  env:
+    # The collector instance this satellite is bound to. Claims addressed to
+    # another instance terminal-fail instead of collecting under a borrowed
+    # identity; an unset binding fails every claim closed.
+    ESHU_GRAFANA_COLLECTOR_INSTANCE_ID: collector-grafana
+config:
+  targets:
+    - provider: grafana
+      scope_id: grafana:parity:prod
+      instance_id: grafana-parity
+      base_url: https://grafana.example.test
+      # token_env names the env var holding the Bearer token. Omit for
+      # credential-free targets only if the source accepts it: an empty
+      # token fails source construction before any provider contact.
+      token_env: GRAFANA_TOKEN
+      resource_limit: 50
+      enabled: true
