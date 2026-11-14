@@ -1,6 +1,6 @@
 # CI gates for eshu-collector-grafana (org gate contract).
 #
-# Frozen job names: changes, lint, test, race, shell, govulncheck,
+# Frozen job names: changes, lint, test, race, image, shell, govulncheck,
 # govulncheck-report, gosec, gosec-sarif, ci-complete. ci-complete is the
 # ONLY context the main ruleset requires:
 # it fails if a needed lane failed and passes when lanes were legitimately
@@ -17,6 +17,8 @@
 #   go.mod/go.sum/.golangci.yml .... lint, test, race, govulncheck
 #   .github/workflows/** .......... actionlint, plus lint, test, race
 #   shell (**/*.sh, none today) .... shell only
+#   image (Dockerfile, .dockerignore) .. image only (build + shape proof,
+#                                        no push; publishing is image-publish)
 #   anything else (Makefile, .github/dependabot.yml, future files):
 #     the `misc` catch-all runs lint, test, race (fail closed per the epic).
 # Pushes, schedules, and dispatches skip `changes` and run every lane: each
@@ -67,6 +69,7 @@ jobs:
       deps: ${{ steps.filter.outputs.deps }}
       workflow: ${{ steps.filter.outputs.workflow }}
       shell: ${{ steps.filter.outputs.shell }}
+      image: ${{ steps.filter.outputs.image }}
       misc: ${{ steps.filter.outputs.misc }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,9 +88,8 @@ jobs:
             go:
               - '**/*.go'
             fixtures:
-              # Files tests may read that are not Go sources. None exist in
-              # tree today (no testdata/, JSON, YAML, manifest, or example
-              # files), so this class is future-proofing wired to `test`.
+              # Files tests may read that are not Go sources (manifest.yaml,
+              # grant.example.json, config.example.yaml), wired to `test`.
               - 'testdata/**'
               - '**/*.json'
               - '**/*.yaml'
@@ -102,11 +104,14 @@ jobs:
               - '.github/workflows/**'
             shell:
               - '**/*.sh'
+            image:
+              - 'Dockerfile'
+              - '.dockerignore'
             misc:
               # Fail closed per the epic: anything not classified above runs
               # lint+test+race. Docs stay negated so docs-only PRs keep
               # skipping every lane; every classified pattern is negated too
-              # so narrow lanes (fixtures/shell) keep their shape.
+              # so narrow lanes (fixtures/shell/image) keep their shape.
               - '**'
               - '!**/*.md'
               - '!LICENSE*'
@@ -122,6 +127,8 @@ jobs:
               - '!.golangci.yml'
               - '!.github/workflows/**'
               - '!**/*.sh'
+              - '!Dockerfile'
+              - '!.dockerignore'
 
   lint:
     needs: [changes]
@@ -218,6 +225,37 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "total coverage: ${total}% (floor ${COVERAGE_FLOOR}%)"
           awk -v total="$total" -v floor="$COVERAGE_FLOOR" 'BEGIN { if (total + 0 < floor + 0) { printf "coverage %.1f%% is below floor %s%%\n", total, floor; exit 1 } }'
+
+  image:
+    needs: [changes]
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.image == 'true' || needs.changes.outputs.go == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.misc == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Build-only proof of the shipped Dockerfile (no push; publishing
+      # lives in image-publish.yml). An image-only PR runs this lane and
+      # nothing else.
+      - name: Build the collector image
+        run: docker build -t eshu-collector-grafana:ci .
+      - name: Prove the image shape
+        run: |
+          set -euo pipefail
+          user=$(docker image inspect --format '{{.Config.User}}' eshu-collector-grafana:ci)
+          echo "image user: $user"
+          if [[ "$user" != "65532:65532" ]]; then
+            echo "image runs as $user, want 65532:65532" >&2
+            exit 1
+          fi
+          from_total=$(grep -Ec '^[[:space:]]*FROM ' Dockerfile)
+          from_pinned=$(grep -Ec '^[[:space:]]*FROM [^[:space:]]+@sha256:[0-9a-f]{64}' Dockerfile)
+          echo "Dockerfile bases: $from_pinned/$from_total digest-pinned"
+          if [[ "$from_pinned" != "$from_total" ]]; then
+            echo "Dockerfile has unpinned bases" >&2
+            exit 1
+          fi
 
   shell:
     needs: [changes]
@@ -399,7 +437,7 @@ jobs:
 
   ci-complete:
     if: always()
-    needs: [changes, lint, test, race, shell, govulncheck, govulncheck-report, gosec, gosec-sarif]
+    needs: [changes, lint, test, race, shell, govulncheck, govulncheck-report, gosec, gosec-sarif, image]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
