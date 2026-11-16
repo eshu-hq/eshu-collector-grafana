@@ -4,10 +4,9 @@
 # reads one collector-sdk/v1alpha1 request from stdin and writes one result
 # to stdout.
 #
-# The request carries the claim, the activation config, and the
-# host-delivered core-issued producer grant together. Without a usable
-# grant the claim ends terminal with zero facts: an unwired host emits no
-# evidence.
+# The request carries the claim and the activation config together. The
+# host delivers no grant: only a delivered-but-unusable grant ends terminal
+# with zero facts.
 #
 #   docker run -i IMAGE < request.json    serves one claim from stdin
 #

@@ -42,7 +42,7 @@ Construction validates as it goes: at least one target must be enabled, duplicat
 result, err := source.Collect(ctx, claim, grantValue)
 ```
 
-The grant is checked first, before anything talks to Grafana — a missing or wrong grant fails the call with no provider contact, which is exactly what you want. A good call returns one `collector.Result`; a provider failure returns a classified `transport.ProviderFailure`, and your host decides whether the claim retries or stops.
+A delivered grant is checked first, before anything talks to Grafana — a wrong one fails the call with no provider contact, which is exactly what you want (an absent grant proceeds under host-side admission). A good call returns one `collector.Result`; a provider failure returns a classified `transport.ProviderFailure`, and your host decides whether the claim retries or stops.
 
 ## Where next
 

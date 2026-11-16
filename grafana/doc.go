@@ -11,8 +11,9 @@
 // destinations, credentials, or notification routes. Core owns admission,
 // projection, persistence, claim mutation, fencing, and declared/applied/
 // observed comparison: this package returns a collector.Result per host
-// claim and enforces the core-issued producer grant (see the grant
-// package) at every emission.
+// claim and enforces a delivered core-issued producer grant (see the grant
+// package) at every emission; an absent grant proceeds under host-side
+// admission.
 //
 // Extracted from eshu-hq/eshu go/internal/collector/observability/grafana
 // (#8857). Contract payloads merge through the pinned
