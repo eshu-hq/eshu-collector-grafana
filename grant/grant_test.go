@@ -34,6 +34,26 @@ func TestCheckAcceptsDraftShapedGrant(t *testing.T) {
 	}
 }
 
+// TestCheckAcceptsHostShapedGrant pins the live-ops-qa regression: the host
+// grant registry records expires_at but no issued_at, so a delivered grant
+// with zero IssuedAt and a future expiry must pass (issuance checks are
+// skipped, not failed). A grant that is expired must still deny.
+func TestCheckAcceptsHostShapedGrant(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 11, 16, 11, 10, 0, 0, time.UTC)
+	delivered := validTestGrant()
+	delivered.IssuedAt = time.Time{}
+	delivered.ExpiresAt = now.Add(720 * time.Hour)
+	if err := Check(delivered, now); err != nil {
+		t.Fatalf("Check(host-shaped, no issued_at) error = %v, want nil", err)
+	}
+	delivered.ExpiresAt = now.Add(-time.Second)
+	if err := Check(delivered, now); err == nil {
+		t.Fatal("Check(host-shaped, expired) = nil, want fail-closed denial")
+	}
+}
+
 func TestCheckFailsClosed(t *testing.T) {
 	t.Parallel()
 
