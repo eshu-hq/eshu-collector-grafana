@@ -31,7 +31,7 @@ const (
 	ProducerID = "dev.eshu.collector.grafana"
 	// Version is the draft producer version. It must match
 	// metadata.version at admission.
-	Version = "0.1.2"
+	Version = "0.1.3"
 	// Scope must match the manifest-declared collector kind at admission.
 	Scope = "grafana"
 	// SchemaVersionV1 is the schema version every covered kind carries.

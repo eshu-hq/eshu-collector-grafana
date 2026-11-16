@@ -27,6 +27,7 @@ type manifestDoc struct {
 	} `yaml:"metadata"`
 	Spec struct {
 		CompatibleCore string   `yaml:"compatibleCore"`
+		ComponentType  string   `yaml:"componentType"`
 		CollectorKinds []string `yaml:"collectorKinds"`
 		Runtime        struct {
 			SDKProtocol string `yaml:"sdkProtocol"`
@@ -71,6 +72,11 @@ func TestManifestDeclaresTheFourGrafanaKinds(t *testing.T) {
 	}
 	if manifest.Metadata.Version != GrantVersion {
 		t.Fatalf("manifest version = %q, want %q", manifest.Metadata.Version, GrantVersion)
+	}
+	// The host reconcile gate admits only spec.componentType "collector";
+	// a manifest without it seeds fine and then fails Enable (ops-qa).
+	if manifest.Spec.ComponentType != "collector" {
+		t.Fatalf("manifest componentType = %q, want %q", manifest.Spec.ComponentType, "collector")
 	}
 	if len(manifest.Spec.CollectorKinds) != 1 || manifest.Spec.CollectorKinds[0] != CollectorKind {
 		t.Fatalf("collectorKinds = %v, want [%q]", manifest.Spec.CollectorKinds, CollectorKind)
