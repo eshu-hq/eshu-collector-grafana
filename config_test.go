@@ -88,6 +88,37 @@ func TestParseSettingsRejectsBadConfig(t *testing.T) {
 	}
 }
 
+// TestParseSettingsAcceptsActivationEnvelope pins the live-shape regression
+// (mimir ops-qa 0-fact incident, eshu-collector-prometheus-mimir#29): every
+// activation carries top-level provider/scope_id envelope keys, so they must
+// parse while a genuinely unknown top-level key still fails closed.
+func TestParseSettingsAcceptsActivationEnvelope(t *testing.T) {
+	t.Parallel()
+
+	target := testConfig()["targets"].([]any)[0].(map[string]any)
+	envelope := map[string]any{
+		"provider": "grafana",
+		"scope_id": "grafana:prod",
+		"targets":  []any{target},
+	}
+	settings, err := ParseSettings(envelope, "grafana:prod", testEnv)
+	if err != nil {
+		t.Fatalf("ParseSettings(activation envelope) error = %v, want nil", err)
+	}
+	if len(settings.Targets) != 1 {
+		t.Fatalf("ParseSettings(activation envelope) targets = %d, want 1", len(settings.Targets))
+	}
+	rogue := map[string]any{
+		"provider":  "grafana",
+		"scope_id":  "grafana:prod",
+		"bogus_key": true,
+		"targets":   testConfig()["targets"],
+	}
+	if _, err := ParseSettings(rogue, "grafana:prod", testEnv); err == nil {
+		t.Error("ParseSettings(unknown top-level key) error = nil, want a failure")
+	}
+}
+
 // TestParseSettingsRejectsUnserializableConfig proves a config that cannot
 // survive a JSON round trip fails closed instead of silently degrading.
 func TestParseSettingsRejectsUnserializableConfig(t *testing.T) {

@@ -8,7 +8,7 @@
 // component-producer-grants.md (#6709) and installed at cutover under the
 // #4047 gate. The draft terms live in producer-grant.manifest.DRAFT.yaml
 // in eshu-hq/eshu (go/cmd/collector-grafana, #8857): producer
-// dev.eshu.collector.grafana, version 0.1.1, scope grafana, authority mode
+// dev.eshu.collector.grafana, version 0.1.2, scope grafana, authority mode
 // core_issued_grant, covering the four observed kinds at schema 1.0.0 with
 // a 720h maximum lifetime.
 //
@@ -31,7 +31,7 @@ const (
 	ProducerID = "dev.eshu.collector.grafana"
 	// Version is the draft producer version. It must match
 	// metadata.version at admission.
-	Version = "0.1.1"
+	Version = "0.1.2"
 	// Scope must match the manifest-declared collector kind at admission.
 	Scope = "grafana"
 	// SchemaVersionV1 is the schema version every covered kind carries.
