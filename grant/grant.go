@@ -32,7 +32,7 @@ const (
 	ProducerID = "dev.eshu.collector.grafana"
 	// Version is the draft producer version. It must match
 	// metadata.version at admission.
-	Version = "0.1.4"
+	Version = "0.1.5"
 	// Scope must match the manifest-declared collector kind at admission.
 	Scope = "grafana"
 	// SchemaVersionV1 is the schema version every covered kind carries.
@@ -85,6 +85,12 @@ type Grant struct {
 
 // Check enforces the grant draft at the emission edge and fails closed on
 // any mismatch. A zero now falls back to the current time.
+//
+// Issuance enforcement is conditional: the host grant registry records
+// expires_at but no issued_at, so a delivered grant with zero IssuedAt skips
+// the future-issuance and lifetime-cap checks (they cannot be evaluated) and
+// is still held to a future ExpiresAt. When IssuedAt is present it is fully
+// enforced, so the MaxLifetime cap stays meaningful for complete records.
 func Check(g Grant, now time.Time) error {
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -104,21 +110,20 @@ func Check(g Grant, now time.Time) error {
 	if err := checkCoverage(g.Kinds); err != nil {
 		return err
 	}
-	if g.IssuedAt.IsZero() {
-		return fmt.Errorf("%w: issued_at is required", ErrDenied)
-	}
-	if g.IssuedAt.After(now) {
-		return fmt.Errorf("%w: grant issued in the future", ErrDenied)
-	}
 	if g.ExpiresAt.IsZero() || !g.ExpiresAt.After(now) {
 		return fmt.Errorf("%w: grant is expired or has no expiry", ErrDenied)
 	}
-	lifetime := g.ExpiresAt.Sub(g.IssuedAt)
-	if lifetime <= 0 {
-		return fmt.Errorf("%w: grant lifetime must be positive", ErrDenied)
-	}
-	if lifetime > MaxLifetime {
-		return fmt.Errorf("%w: grant lifetime %s exceeds %s", ErrDenied, lifetime, MaxLifetime)
+	if !g.IssuedAt.IsZero() {
+		if g.IssuedAt.After(now) {
+			return fmt.Errorf("%w: grant issued in the future", ErrDenied)
+		}
+		lifetime := g.ExpiresAt.Sub(g.IssuedAt)
+		if lifetime <= 0 {
+			return fmt.Errorf("%w: grant lifetime must be positive", ErrDenied)
+		}
+		if lifetime > MaxLifetime {
+			return fmt.Errorf("%w: grant lifetime %s exceeds %s", ErrDenied, lifetime, MaxLifetime)
+		}
 	}
 	return nil
 }
