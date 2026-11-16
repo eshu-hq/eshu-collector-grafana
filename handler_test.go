@@ -161,9 +161,12 @@ func TestHandleFailsClosedWithoutAnInstanceBinding(t *testing.T) {
 			return stubEvidenceClient{result: stubSnapshot()}, nil
 		},
 	}
+	// No binding anywhere: blank env AND blank claim instance.
+	unbound := testClaim()
+	unbound.InstanceID = ""
 	result := handler.Handle(context.Background(), Request{
 		ProtocolVersion: sdk.ProtocolVersionV1Alpha1,
-		Claim:           testClaim(),
+		Claim:           unbound,
 		Contract:        Contract(),
 		Config:          testConfig(),
 		Grant:           testGrant(),
@@ -173,6 +176,45 @@ func TestHandleFailsClosedWithoutAnInstanceBinding(t *testing.T) {
 	}
 	if len(result.Facts) != 0 {
 		t.Fatalf("result carries %d facts, want zero without an instance binding", len(result.Facts))
+	}
+}
+
+// TestHandleFallsBackToClaimInstanceID pins the live-ops-qa regression: the
+// host chart sets only the generic instance env, never
+// ESHU_GRAFANA_COLLECTOR_INSTANCE_ID, so the handler must take the instance
+// from the claim instead of terminal-failing with zero facts.
+func TestHandleFallsBackToClaimInstanceID(t *testing.T) {
+	t.Parallel()
+
+	handler := Handler{
+		Getenv: func(key string) string {
+			if key == "GRAFANA_TOKEN" {
+				return "test-token"
+			}
+			return ""
+		},
+		NewClient: func(grafana.TargetConfig) (grafana.EvidenceClient, error) {
+			return stubEvidenceClient{result: stubSnapshot()}, nil
+		},
+	}
+	claim := testClaim()
+	claim.InstanceID = "grafana-cx-ops-qa"
+	claim.Scope = sdk.Scope{ID: "grafana:ops-qa", Kind: "grafana_instance"}
+	config := testConfig()
+	config["scope_id"] = "grafana:ops-qa"
+	config["targets"].([]any)[0].(map[string]any)["scope_id"] = "grafana:ops-qa"
+	result := handler.Handle(context.Background(), Request{
+		ProtocolVersion: sdk.ProtocolVersionV1Alpha1,
+		Claim:           claim,
+		Contract:        Contract(),
+		Config:          config,
+		Grant:           testGrant(),
+	})
+	if result.State != sdk.ResultComplete && result.State != sdk.ResultPartial {
+		t.Fatalf("result state = %q, want complete or partial via claim instance fallback", result.State)
+	}
+	if len(result.Facts) == 0 {
+		t.Fatal("result carries no facts, want evidence via claim instance fallback")
 	}
 }
 
