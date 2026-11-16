@@ -95,7 +95,13 @@ func (h Handler) Handle(ctx context.Context, request Request) sdk.Result {
 	if target == nil {
 		return h.retryableResult(claim, started, grafana.FailureRetryable)
 	}
+	// The host chart sets only the generic instance env; the claim always
+	// carries the instance, mirroring the mimir satellite. Prefer the
+	// explicit env when set, fall back to the claim.
 	instanceID := strings.TrimSpace(h.getenv(CollectorInstanceIDEnv))
+	if instanceID == "" {
+		instanceID = strings.TrimSpace(claim.InstanceID)
+	}
 	if instanceID == "" {
 		return h.terminalResult(claim, started, grafana.FailureTerminal)
 	}
