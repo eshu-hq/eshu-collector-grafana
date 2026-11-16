@@ -17,8 +17,9 @@ import (
 )
 
 // FailureGrantDenied marks a claim terminal-failed for lack of a usable
-// core-issued producer grant. The host delivers the grant with the request;
-// an unwired host gets this failure with zero facts, never evidence.
+// core-issued producer grant. The host request carries no grant field, so
+// host-side admission is the operative gate; this failure fires only for a
+// delivered-but-unusable grant, never for an absent one.
 const FailureGrantDenied = "grant_denied"
 
 // CollectorInstanceIDEnv names the environment variable carrying the

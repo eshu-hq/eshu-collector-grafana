@@ -33,7 +33,7 @@ const (
 	ProducerID = "dev.eshu.collector.grafana"
 	// Version is the draft producer version. It must match
 	// metadata.version at admission.
-	Version = "0.1.5"
+	Version = "0.1.6"
 	// Scope must match the manifest-declared collector kind at admission.
 	Scope = "grafana"
 	// SchemaVersionV1 is the schema version every covered kind carries.
@@ -82,6 +82,20 @@ type Grant struct {
 	Kinds      []KindGrant
 	IssuedAt   time.Time
 	ExpiresAt  time.Time
+}
+
+// IsZero reports whether no grant was delivered at all. The extension host
+// request carries no grant field, so a live claim always arrives with a
+// zero Grant and host-side admission (the registry "producer grant allowed"
+// decision) is the operative gate; Collect skips Check in that case. A
+// partially populated grant is NOT zero and still fails closed.
+func (g Grant) IsZero() bool {
+	return strings.TrimSpace(g.ProducerID) == "" &&
+		strings.TrimSpace(g.Version) == "" &&
+		strings.TrimSpace(g.Scope) == "" &&
+		len(g.Kinds) == 0 &&
+		g.IssuedAt.IsZero() &&
+		g.ExpiresAt.IsZero()
 }
 
 // Check enforces the grant draft at the emission edge and fails closed on

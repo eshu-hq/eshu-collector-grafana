@@ -12,6 +12,7 @@ import (
 	"github.com/eshu-hq/eshu-sdk/collector/transport"
 
 	"github.com/eshu-hq/eshu-collector-grafana/grafana"
+	"github.com/eshu-hq/eshu-collector-grafana/grant"
 )
 
 type stubEvidenceClient struct {
@@ -91,11 +92,11 @@ func TestHandleServesOneClaimAsOneResult(t *testing.T) {
 	}
 }
 
-// TestHandleFailsClosedWithoutAGrant proves the unwired-host design: the
-// host must deliver the core-issued producer grant with the request. A zero
-// grant denies at the emission edge, so the claim ends terminal with zero
-// facts — never with unauthenticated evidence.
-func TestHandleFailsClosedWithoutAGrant(t *testing.T) {
+// TestHandleProceedsWithoutDeliveredGrant pins the live-host contract: the
+// extension host request carries no grant field (host-side admission already
+// allowed the claim), so an absent grant must proceed to collection —
+// otherwise no live claim could ever emit (ops-qa grant_denied incident).
+func TestHandleProceedsWithoutDeliveredGrant(t *testing.T) {
 	t.Parallel()
 
 	handler := Handler{
@@ -111,11 +112,42 @@ func TestHandleFailsClosedWithoutAGrant(t *testing.T) {
 		Contract:        Contract(),
 		Config:          testConfig(),
 	})
+	if result.State != sdk.ResultComplete && result.State != sdk.ResultPartial {
+		t.Fatalf("result state = %q, want complete or partial without a delivered grant", result.State)
+	}
+	if len(result.Facts) == 0 {
+		t.Fatal("result carries no facts, want evidence without a delivered grant")
+	}
+}
+
+// TestHandleFailsClosedOnWrongDeliveredGrant proves the remaining fail-closed
+// edge: a present-but-unusable grant still denies terminal with zero facts.
+func TestHandleFailsClosedOnWrongDeliveredGrant(t *testing.T) {
+	t.Parallel()
+
+	handler := Handler{
+		Getenv: testEnv,
+		Now:    func() time.Time { return time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC) },
+		NewClient: func(grafana.TargetConfig) (grafana.EvidenceClient, error) {
+			return stubEvidenceClient{result: stubSnapshot()}, nil
+		},
+	}
+	result := handler.Handle(context.Background(), Request{
+		ProtocolVersion: sdk.ProtocolVersionV1Alpha1,
+		Claim:           testClaim(),
+		Contract:        Contract(),
+		Config:          testConfig(),
+		Grant: grant.Grant{
+			ProducerID: "dev.eshu.collector.grafana",
+			Version:    "9.9.9",
+			Scope:      "grafana",
+		},
+	})
 	if result.State != sdk.ResultTerminal {
-		t.Fatalf("result state = %q, want terminal for a missing grant", result.State)
+		t.Fatalf("result state = %q, want terminal for a wrong delivered grant", result.State)
 	}
 	if len(result.Facts) != 0 {
-		t.Fatalf("result carries %d facts, want zero without a grant", len(result.Facts))
+		t.Fatalf("result carries %d facts, want zero for a wrong delivered grant", len(result.Facts))
 	}
 	if len(result.Statuses) != 1 || result.Statuses[0].FailureClass != FailureGrantDenied {
 		t.Fatalf("result statuses = %+v, want one grant-denied failure", result.Statuses)

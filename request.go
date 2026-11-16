@@ -22,9 +22,10 @@ import (
 const MaxRequestBytes = 1 << 20
 
 // Request is the bounded JSON document the extension host writes to stdin.
-// It carries one claim, the activation config, and the host-delivered
-// core-issued producer grant together because this satellite keeps no grant
-// registry of its own: without the delivered grant the claim fails closed.
+// It carries one claim and the activation config together because this
+// satellite keeps no grant registry of its own. The host request carries no
+// grant field: host-side admission already allowed the claim, so an absent
+// grant proceeds and only a delivered-but-unusable grant fails closed.
 type Request struct {
 	ProtocolVersion string         `json:"protocol_version"`
 	Claim           sdk.Claim      `json:"claim"`

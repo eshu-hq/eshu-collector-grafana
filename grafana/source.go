@@ -88,8 +88,14 @@ func (s *ClaimedSource) Collect(
 	claim collector.Claim,
 	g grant.Grant,
 ) (collector.Result, error) {
-	if err := grant.Check(g, time.Now()); err != nil {
-		return collector.Result{}, err
+	// The host request carries no grant (see extensionhost.Request: claim,
+	// config, contract only), so a zero grant means "host already admitted"
+	// and must not fail here — otherwise no live claim could ever emit. A
+	// delivered-but-wrong grant still fails closed below.
+	if !g.IsZero() {
+		if err := grant.Check(g, time.Now()); err != nil {
+			return collector.Result{}, err
+		}
 	}
 	if strings.TrimSpace(claim.InstanceID) != s.collectorInstanceID {
 		return collector.Result{}, fmt.Errorf(
