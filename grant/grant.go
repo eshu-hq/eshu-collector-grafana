@@ -11,7 +11,8 @@
 // dev.eshu.collector.grafana, version 0.1.2, scope grafana, authority mode
 // (draft terms as issued at 0.1.2; the enforced version is Version below)
 // core_issued_grant, covering the four observed kinds at schema 1.0.0 with
-// a 720h maximum lifetime.
+// a 720h maximum lifetime when issuance is known (the host registry records
+// no issuance time, so delivered grants are held to a future expiry only).
 //
 // STUB: Check verifies grant shape, producer identity, version, scope,
 // kind coverage, schema versions, and expiry only. It does NOT verify a
