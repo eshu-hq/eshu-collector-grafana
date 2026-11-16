@@ -6,10 +6,9 @@
 // collector-sdk/v1alpha1 request from stdin and writes one result to
 // stdout.
 //
-// The request carries the host-delivered core-issued producer grant with
-// the claim. The grant is enforced at every emission and fails closed on
-// a zero grant, so a host that never wires the grant gets a terminal result
-// with zero facts — never evidence.
+// The request carries the claim and the activation config. The host
+// delivers no grant, so host-side admission is the operative gate and only
+// a delivered-but-unusable grant ends terminal with zero facts.
 package main
 
 import (

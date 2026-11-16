@@ -19,7 +19,7 @@ Reach for it if you're building or testing the Eshu host path that tracks live d
 
 Skip it if you want a standalone exporter, a dashboard backup tool, or anything that writes to Grafana. The library can't run without a host and the image can't run without a claim on stdin; neither keeps a schedule. Both never write to Grafana, and both deliberately ignore dashboard JSON, datasource URLs, and credentials. Those never belong in a fact.
 
-One design point to carry with you: the host must deliver the core-issued producer grant with each claim. Without a usable grant the satellite ends the claim with zero facts instead of unauthenticated evidence, so an unwired host collects nothing. See `grant.example.json` for the request shape an operator submits to core.
+One design point to carry with you: the host request carries no grant — host-side admission already allowed the claim — so collection proceeds and only a delivered-but-unusable grant ends the claim with zero facts. See `grant.example.json` for the grant shape `Check` enforces when one arrives.
 
 ## The shortest way in
 
@@ -36,7 +36,7 @@ import (
 )
 ```
 
-You build a source with `grafana.NewClaimedSource`, then call `Collect(ctx, claim, grant)` for each claim. If the grant is missing or wrong, the call fails before anything talks to Grafana, which is exactly what you want. Full field-by-field notes live in [the configuration reference](docs/reference/configuration.md), and the wiring walkthrough in [the usage guide](docs/guides/usage.md).
+You build a source with `grafana.NewClaimedSource`, then call `Collect(ctx, claim, grant)` for each claim. If a delivered grant is wrong, the call fails before anything talks to Grafana, which is exactly what you want; an absent grant proceeds under host-side admission. Full field-by-field notes live in [the configuration reference](docs/reference/configuration.md), and the wiring walkthrough in [the usage guide](docs/guides/usage.md).
 
 ## A quick tour of the docs
 

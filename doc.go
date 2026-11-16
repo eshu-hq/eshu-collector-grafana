@@ -3,7 +3,7 @@
 
 // Package collector is the satellite packaging of the extracted Grafana
 // collector: the stdin/stdout entrypoint wire-up, the component manifest,
-// and the host-delivered grant path.
+// and the delivered-grant check path (the host itself delivers no grant).
 //
 // With no arguments (or --sdk-stdio) the cmd/collector binary serves one
 // claim: it reads one collector-sdk/v1alpha1 request from stdin — claim,

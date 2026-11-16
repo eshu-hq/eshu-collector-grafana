@@ -6,13 +6,13 @@ You're the host author here, so let's walk the path your code actually drives. T
 
 See [Diagrams](../diagrams/README.md) for the picture.
 
-In words: your host hands over a claim and a grant, the library checks the grant, picks the target the claim names, fetches bounded metadata, wraps it as facts, and returns one `collector.Result`. If Grafana misbehaves, you get a classified failure instead, and you decide what happens next. The library doesn't pick retry timing for you.
+In words: your host hands over a claim, the library picks the target the claim names, fetches bounded metadata, wraps it as facts, and returns one `collector.Result`. If Grafana misbehaves, you get a classified failure instead, and you decide what happens next. The library doesn't pick retry timing for you.
 
-Here's the grant check up close, because it happens first and it can stop everything:
+Here's the grant check up close: `Collect` validates a delivered grant, and a bad one ends the call right there. The host delivers none, so live claims proceed under host-side admission.
 
 See [Diagrams](../diagrams/README.md) for the picture.
 
-Text version, step by step: the host calls `Collect`, `Collect` asks `grant.Check` to validate the grant, and a bad grant ends the call right there. Only a good grant leads to target matching and Grafana reads. A good read comes back as a result full of facts.
+Text version, step by step: the host calls `Collect`, a delivered grant gets validated (absent grants proceed), and only a good-or-absent grant leads to target matching and Grafana reads. A good read comes back as a result full of facts.
 
 ## What comes out
 
@@ -36,7 +36,7 @@ The `grafana` package does the collecting. Its package comment in `grafana/doc.g
 Names you'll touch most:
 
 - `NewClaimedSource` validates your config and builds the source. Disabled targets get skipped before any client exists, and you need at least one enabled target or construction fails.
-- `ClaimedSource.Collect` runs one claim end to end: grant first, then claim checks (instance ID, collector kind, source system `grafana`, generation ID), then the fetch.
+- `ClaimedSource.Collect` runs one claim end to end: delivered-grant check first (absent grants proceed under host-side admission), then claim checks (instance ID, collector kind, source system `grafana`, generation ID), then the fetch.
 - `NewHTTPClient` builds the built-in bounded REST client. It sends your token as a Bearer header and sticks to the three GET endpoints in the table.
 - The four `New*Envelope` constructors turn bounded evidence into wire facts. You'll rarely call them directly, but they're there if you assemble results yourself.
 - `SchemaVersionForKind` and `CheckSchemaVersion` enforce the locked `1.0.0` map in `grafana/schema.go`. Unknown kinds and foreign versions fail closed.

@@ -17,8 +17,9 @@
 // STUB: Check verifies grant shape, producer identity, version, scope,
 // kind coverage, schema versions, and expiry only. It does NOT verify a
 // core issuance signature — no signature scheme exists yet, and issuance
-// itself is core-owned. Until core issues and the host delivers a grant,
-// the zero Grant is denied and every emission fails closed.
+// itself is core-owned. The host request carries no grant, so Check guards
+// only a delivered-but-wrong one; an absent grant proceeds under host-side
+// admission.
 package grant
 
 import (

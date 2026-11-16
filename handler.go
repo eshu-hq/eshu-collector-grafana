@@ -64,10 +64,10 @@ func (h Handler) newClient(target grafana.TargetConfig) (grafana.EvidenceClient,
 }
 
 // Handle collects the Grafana target named by the claim and returns the SDK
-// result the host validates and commits. The host-delivered grant is
-// enforced at every emission through the claim-driven source: without a
-// usable grant the claim ends terminal with zero facts. It never returns
-// facts together with a failure state, never lets a credential into a
+// result the host validates and commits. A delivered grant is enforced at
+// every emission through the claim-driven source: only a delivered-but-
+// unusable grant ends terminal with zero facts (the host delivers none).
+// It never returns facts together with a failure state, never lets a credential into a
 // result, and echoes the claim unchanged so the host's identity check
 // passes.
 func (h Handler) Handle(ctx context.Context, request Request) sdk.Result {
@@ -124,7 +124,7 @@ func (h Handler) Handle(ctx context.Context, request Request) sdk.Result {
 }
 
 // collectErrorResult maps a Collect failure onto the host retry contract. A
-// grant denial is permanent — the host must deliver a grant, not retry — so
+// grant denial is permanent — a delivered grant stays wrong, not retry — so
 // it ends terminal with zero facts. Provider failures keep the classified
 // retry contract.
 func (h Handler) collectErrorResult(claim sdk.Claim, started time.Time, err error) sdk.Result {

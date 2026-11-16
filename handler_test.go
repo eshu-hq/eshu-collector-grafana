@@ -58,9 +58,8 @@ func stubSnapshot() grafana.CollectionResult {
 }
 
 // TestHandleServesOneClaimAsOneResult proves the entrypoint wiring: one
-// host claim plus the delivered grant drives the claim-driven source to a
-// complete result with facts, and the claim is echoed back for the host
-// identity check.
+// host claim drives the claim-driven source to a complete result with
+// facts, and the claim is echoed back for the host identity check.
 func TestHandleServesOneClaimAsOneResult(t *testing.T) {
 	t.Parallel()
 
