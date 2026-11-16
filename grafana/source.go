@@ -24,8 +24,8 @@ type targetRuntime struct {
 // facts. It owns target validation, normalization, envelope construction,
 // and source-local failure classification only: admission, projection,
 // persistence, claim mutation, and fencing stay core-owned. Every Collect
-// call enforces the core-issued producer grant first and fails closed
-// without one.
+// call enforces a delivered core-issued producer grant, if one arrives;
+// the host request carries none, so host-side admission is the gate.
 type ClaimedSource struct {
 	collectorInstanceID string
 	targets             map[string]targetRuntime
@@ -78,9 +78,9 @@ func NewClaimedSource(config SourceConfig) (*ClaimedSource, error) {
 }
 
 // Collect binds one host claim to its configured target, fetches bounded
-// live metadata, and returns a collector-sdk/v1alpha1 Result. The grant is
-// enforced at every emission: without a usable core-issued grant Collect
-// fails closed before any provider contact. Provider failures return a
+// live metadata, and returns a collector-sdk/v1alpha1 Result. A delivered
+// grant is enforced at every emission and fails closed before any provider
+// contact; an absent grant proceeds under host-side admission. Provider failures return a
 // classified transport.ProviderFailure for host claim disposition; the
 // producer never decides retryable-vs-terminal claim fate itself.
 func (s *ClaimedSource) Collect(
@@ -88,8 +88,14 @@ func (s *ClaimedSource) Collect(
 	claim collector.Claim,
 	g grant.Grant,
 ) (collector.Result, error) {
-	if err := grant.Check(g, time.Now()); err != nil {
-		return collector.Result{}, err
+	// The host request carries no grant (see extensionhost.Request: claim,
+	// config, contract only), so a zero grant means "host already admitted"
+	// and must not fail here — otherwise no live claim could ever emit. A
+	// delivered-but-wrong grant still fails closed below.
+	if !g.IsZero() {
+		if err := grant.Check(g, time.Now()); err != nil {
+			return collector.Result{}, err
+		}
 	}
 	if strings.TrimSpace(claim.InstanceID) != s.collectorInstanceID {
 		return collector.Result{}, fmt.Errorf(

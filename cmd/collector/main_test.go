@@ -168,9 +168,10 @@ func TestRunClaimServesOneRequestAsOneResult(t *testing.T) {
 	}
 }
 
-// TestRunClaimFailsClosedWithoutAGrant proves an unwired host delivers a
-// terminal result with zero facts instead of unauthenticated evidence.
-func TestRunClaimFailsClosedWithoutAGrant(t *testing.T) {
+// TestRunClaimProceedsWithoutDeliveredGrant pins the live-host contract at
+// the binary edge: the host request carries no grant, so the run must
+// collect (ops-qa grant_denied incident), not terminal-fail.
+func TestRunClaimProceedsWithoutDeliveredGrant(t *testing.T) {
 	t.Parallel()
 
 	server := stubGrafana(t)
@@ -179,17 +180,17 @@ func TestRunClaimFailsClosedWithoutAGrant(t *testing.T) {
 		bytes.NewReader(smokeRequest(t, server.URL, grant.Grant{})),
 		&stdout, &stderr, testGetenv, fixedNow)
 	if err != nil {
-		t.Fatalf("runClaim() error = %v, want a terminal result, not a process failure", err)
+		t.Fatalf("runClaim() error = %v, want a result, not a process failure", err)
 	}
 	var result sdk.Result
 	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
 		t.Fatalf("decode result: %v", err)
 	}
-	if result.State != sdk.ResultTerminal {
-		t.Fatalf("result state = %q, want terminal without a grant", result.State)
+	if result.State != sdk.ResultComplete && result.State != sdk.ResultPartial {
+		t.Fatalf("result state = %q, want complete or partial without a delivered grant", result.State)
 	}
-	if len(result.Facts) != 0 {
-		t.Fatalf("result carries %d facts, want zero without a grant", len(result.Facts))
+	if len(result.Facts) == 0 {
+		t.Fatal("result carries no facts, want evidence without a delivered grant")
 	}
 }
 

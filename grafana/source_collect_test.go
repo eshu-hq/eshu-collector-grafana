@@ -170,14 +170,32 @@ func TestCollectPartialReadStaysPartial(t *testing.T) {
 	}
 }
 
-func TestCollectFailsClosedWithoutGrant(t *testing.T) {
+func TestCollectProceedsWithoutDeliveredGrant(t *testing.T) {
+	t.Parallel()
+
+	// The host request carries no grant field: host-side admission already
+	// allowed the claim, so an absent grant must proceed (ops-qa
+	// grant_denied incident). Only a delivered-but-wrong grant denies.
+	source := testSource(t, stubClient{result: stubSnapshot()})
+	res, err := source.Collect(context.Background(), testClaim(), grant.Grant{})
+	if err != nil {
+		t.Fatalf("Collect(zero grant) error = %v, want collection", err)
+	}
+	if len(res.Facts) == 0 {
+		t.Fatal("Collect(zero grant) carries no facts, want evidence")
+	}
+}
+
+func TestCollectFailsClosedOnWrongDeliveredGrant(t *testing.T) {
 	t.Parallel()
 
 	source := testSource(t, stubClient{result: stubSnapshot()})
-	if _, err := source.Collect(context.Background(), testClaim(), grant.Grant{}); err == nil {
-		t.Error("Collect(zero grant) = nil, want fail-closed grant denial")
+	bad := testGrant()
+	bad.Version = "9.9.9"
+	if _, err := source.Collect(context.Background(), testClaim(), bad); err == nil {
+		t.Error("Collect(wrong grant) = nil, want fail-closed grant denial")
 	} else if !errors.Is(err, grant.ErrDenied) {
-		t.Errorf("Collect(zero grant) error = %v, want grant.ErrDenied", err)
+		t.Errorf("Collect(wrong grant) error = %v, want grant.ErrDenied", err)
 	}
 }
 

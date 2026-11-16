@@ -8,15 +8,18 @@
 // component-producer-grants.md (#6709) and installed at cutover under the
 // #4047 gate. The draft terms live in producer-grant.manifest.DRAFT.yaml
 // in eshu-hq/eshu (go/cmd/collector-grafana, #8857): producer
-// dev.eshu.collector.grafana, version 0.1.0, scope grafana, authority mode
+// dev.eshu.collector.grafana, version 0.1.2, scope grafana, authority mode
+// (draft terms as issued at 0.1.2; the enforced version is Version below)
 // core_issued_grant, covering the four observed kinds at schema 1.0.0 with
-// a 720h maximum lifetime.
+// a 720h maximum lifetime when issuance is known (the host registry records
+// no issuance time, so delivered grants are held to a future expiry only).
 //
 // STUB: Check verifies grant shape, producer identity, version, scope,
 // kind coverage, schema versions, and expiry only. It does NOT verify a
 // core issuance signature — no signature scheme exists yet, and issuance
-// itself is core-owned. Until core issues and the host delivers a grant,
-// the zero Grant is denied and every emission fails closed.
+// itself is core-owned. The host request carries no grant, so Check guards
+// only a delivered-but-wrong one; an absent grant proceeds under host-side
+// admission.
 package grant
 
 import (
@@ -31,7 +34,7 @@ const (
 	ProducerID = "dev.eshu.collector.grafana"
 	// Version is the draft producer version. It must match
 	// metadata.version at admission.
-	Version = "0.1.0"
+	Version = "0.1.6"
 	// Scope must match the manifest-declared collector kind at admission.
 	Scope = "grafana"
 	// SchemaVersionV1 is the schema version every covered kind carries.
@@ -71,8 +74,8 @@ type KindGrant struct {
 	SchemaVersions []string
 }
 
-// Grant is the host-delivered core-issued producer grant under check at
-// every emission.
+// Grant is a core-issued producer grant under check at every emission when
+// one is delivered (the host itself delivers none).
 type Grant struct {
 	ProducerID string
 	Version    string
@@ -82,8 +85,28 @@ type Grant struct {
 	ExpiresAt  time.Time
 }
 
+// IsZero reports whether no grant was delivered at all. The extension host
+// request carries no grant field, so a live claim always arrives with a
+// zero Grant and host-side admission (the registry "producer grant allowed"
+// decision) is the operative gate; Collect skips Check in that case. A
+// partially populated grant is NOT zero and still fails closed.
+func (g Grant) IsZero() bool {
+	return strings.TrimSpace(g.ProducerID) == "" &&
+		strings.TrimSpace(g.Version) == "" &&
+		strings.TrimSpace(g.Scope) == "" &&
+		len(g.Kinds) == 0 &&
+		g.IssuedAt.IsZero() &&
+		g.ExpiresAt.IsZero()
+}
+
 // Check enforces the grant draft at the emission edge and fails closed on
 // any mismatch. A zero now falls back to the current time.
+//
+// Issuance enforcement is conditional: the host grant registry records
+// expires_at but no issued_at, so a delivered grant with zero IssuedAt skips
+// the future-issuance and lifetime-cap checks (they cannot be evaluated) and
+// is still held to a future ExpiresAt. When IssuedAt is present it is fully
+// enforced, so the MaxLifetime cap stays meaningful for complete records.
 func Check(g Grant, now time.Time) error {
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -103,21 +126,20 @@ func Check(g Grant, now time.Time) error {
 	if err := checkCoverage(g.Kinds); err != nil {
 		return err
 	}
-	if g.IssuedAt.IsZero() {
-		return fmt.Errorf("%w: issued_at is required", ErrDenied)
-	}
-	if g.IssuedAt.After(now) {
-		return fmt.Errorf("%w: grant issued in the future", ErrDenied)
-	}
 	if g.ExpiresAt.IsZero() || !g.ExpiresAt.After(now) {
 		return fmt.Errorf("%w: grant is expired or has no expiry", ErrDenied)
 	}
-	lifetime := g.ExpiresAt.Sub(g.IssuedAt)
-	if lifetime <= 0 {
-		return fmt.Errorf("%w: grant lifetime must be positive", ErrDenied)
-	}
-	if lifetime > MaxLifetime {
-		return fmt.Errorf("%w: grant lifetime %s exceeds %s", ErrDenied, lifetime, MaxLifetime)
+	if !g.IssuedAt.IsZero() {
+		if g.IssuedAt.After(now) {
+			return fmt.Errorf("%w: grant issued in the future", ErrDenied)
+		}
+		lifetime := g.ExpiresAt.Sub(g.IssuedAt)
+		if lifetime <= 0 {
+			return fmt.Errorf("%w: grant lifetime must be positive", ErrDenied)
+		}
+		if lifetime > MaxLifetime {
+			return fmt.Errorf("%w: grant lifetime %s exceeds %s", ErrDenied, lifetime, MaxLifetime)
+		}
 	}
 	return nil
 }
