@@ -74,8 +74,8 @@ type KindGrant struct {
 	SchemaVersions []string
 }
 
-// Grant is the host-delivered core-issued producer grant under check at
-// every emission.
+// Grant is a core-issued producer grant under check at every emission when
+// one is delivered (the host itself delivers none).
 type Grant struct {
 	ProducerID string
 	Version    string

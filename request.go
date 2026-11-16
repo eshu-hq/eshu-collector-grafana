@@ -17,8 +17,7 @@ import (
 )
 
 // MaxRequestBytes caps the stdin request document. The host sends one claim
-// plus the activation config and the delivered grant, which is far smaller
-// than this.
+// plus the activation config (no grant), which is far smaller than this.
 const MaxRequestBytes = 1 << 20
 
 // Request is the bounded JSON document the extension host writes to stdin.
