@@ -9,6 +9,7 @@
 // #4047 gate. The draft terms live in producer-grant.manifest.DRAFT.yaml
 // in eshu-hq/eshu (go/cmd/collector-grafana, #8857): producer
 // dev.eshu.collector.grafana, version 0.1.2, scope grafana, authority mode
+// (draft terms as issued at 0.1.2; the enforced version is Version below)
 // core_issued_grant, covering the four observed kinds at schema 1.0.0 with
 // a 720h maximum lifetime.
 //
