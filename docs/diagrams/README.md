@@ -19,7 +19,7 @@ Text version: host → claim → library → three GET reads → Grafana API →
 
 ```mermaid
 flowchart LR
-    H["Your host in Eshu core"] -->|"claim + grant"| S["ClaimedSource.Collect"]
+    H["Your host in Eshu core"] -->|"claim (+ optional grant)"| S["ClaimedSource.Collect"]
     S --> C["HTTPClient"]
     C -->|"GET reads"| G["Grafana API"]
     C --> N["Bounded CollectionResult"]
@@ -27,9 +27,9 @@ flowchart LR
     E -->|"collector.Result"| H
 ```
 
-Caption: inside one `Collect` call — the grant is checked, the claim is matched to a configured target, bounded metadata is fetched through `HTTPClient`, and envelope constructors wrap it as a `collector.Result`.
+Caption: inside one `Collect` call — a delivered grant is checked, the claim is matched to a configured target, bounded metadata is fetched through `HTTPClient`, and envelope constructors wrap it as a `collector.Result`.
 
-Text version: your host hands over a claim and a grant, the library checks the grant, picks the target the claim names, fetches bounded metadata, wraps it as facts, and returns one result. If Grafana misbehaves, you get a classified failure instead, and you decide what happens next.
+Text version: your host hands over a claim, the library picks the target the claim names, fetches bounded metadata, wraps it as facts, and returns one result. If Grafana misbehaves, you get a classified failure instead, and you decide what happens next.
 
 ## The grant check, up close
 
@@ -40,11 +40,11 @@ sequenceDiagram
     participant Grant as grant.Check
     participant Grafana as Grafana API
     Host->>Collect: Collect(ctx, claim, grant)
-    Collect->>Grant: Check(grant, now)
-    alt grant missing or mismatched
+    Collect->>Grant: Check(grant, now) if delivered
+    alt grant delivered but mismatched
         Grant-->>Collect: ErrDenied (wrapped)
         Collect-->>Host: error, no provider contact
-    else grant checks out
+    else grant absent or checks out
         Collect->>Collect: match claim to configured target
         Collect->>Grafana: bounded GET reads
         Grafana-->>Collect: metadata
@@ -52,6 +52,6 @@ sequenceDiagram
     end
 ```
 
-Caption: sequence of the grant check. It happens first and can stop everything: a missing or mismatched grant ends the call before any provider contact.
+Caption: sequence of the grant check. A delivered-but-wrong grant ends the call before any provider contact; an absent grant proceeds under host-side admission.
 
-Text version, step by step: the host calls `Collect`, `Collect` asks `grant.Check` to validate the grant, and a bad grant ends the call right there. Only a good grant leads to target matching and Grafana reads. A good read comes back as a result full of facts.
+Text version, step by step: the host calls `Collect`, a delivered grant gets validated (absent grants proceed), and only a good-or-absent grant leads to target matching and Grafana reads. A good read comes back as a result full of facts.

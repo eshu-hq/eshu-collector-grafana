@@ -77,7 +77,8 @@ func encodeRequest(t *testing.T, claim sdk.Claim, config map[string]any, g grant
 
 // TestParseRequestAcceptsAFullHostRequest proves the wire shape the
 // extension host writes: one bounded JSON document carrying claim, config,
-// and the host-delivered producer grant together.
+// and an optional producer grant together (the host sends none live;
+// the grant field exists for direct and test callers).
 func TestParseRequestAcceptsAFullHostRequest(t *testing.T) {
 	t.Parallel()
 

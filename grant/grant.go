@@ -17,8 +17,9 @@
 // STUB: Check verifies grant shape, producer identity, version, scope,
 // kind coverage, schema versions, and expiry only. It does NOT verify a
 // core issuance signature — no signature scheme exists yet, and issuance
-// itself is core-owned. Until core issues and the host delivers a grant,
-// the zero Grant is denied and every emission fails closed.
+// itself is core-owned. The host request carries no grant, so Check guards
+// only a delivered-but-wrong one; an absent grant proceeds under host-side
+// admission.
 package grant
 
 import (
@@ -33,7 +34,7 @@ const (
 	ProducerID = "dev.eshu.collector.grafana"
 	// Version is the draft producer version. It must match
 	// metadata.version at admission.
-	Version = "0.1.5"
+	Version = "0.1.6"
 	// Scope must match the manifest-declared collector kind at admission.
 	Scope = "grafana"
 	// SchemaVersionV1 is the schema version every covered kind carries.
@@ -73,8 +74,8 @@ type KindGrant struct {
 	SchemaVersions []string
 }
 
-// Grant is the host-delivered core-issued producer grant under check at
-// every emission.
+// Grant is a core-issued producer grant under check at every emission when
+// one is delivered (the host itself delivers none).
 type Grant struct {
 	ProducerID string
 	Version    string
@@ -82,6 +83,20 @@ type Grant struct {
 	Kinds      []KindGrant
 	IssuedAt   time.Time
 	ExpiresAt  time.Time
+}
+
+// IsZero reports whether no grant was delivered at all. The extension host
+// request carries no grant field, so a live claim always arrives with a
+// zero Grant and host-side admission (the registry "producer grant allowed"
+// decision) is the operative gate; Collect skips Check in that case. A
+// partially populated grant is NOT zero and still fails closed.
+func (g Grant) IsZero() bool {
+	return strings.TrimSpace(g.ProducerID) == "" &&
+		strings.TrimSpace(g.Version) == "" &&
+		strings.TrimSpace(g.Scope) == "" &&
+		len(g.Kinds) == 0 &&
+		g.IssuedAt.IsZero() &&
+		g.ExpiresAt.IsZero()
 }
 
 // Check enforces the grant draft at the emission edge and fails closed on

@@ -38,7 +38,7 @@ Duplicate `ScopeID` values across enabled targets fail construction, and so does
 | Name | What it does |
 | --- | --- |
 | `grafana.NewClaimedSource(SourceConfig)` | Validates config and builds the claim-driven source. Disabled targets are skipped before any client exists. |
-| `ClaimedSource.Collect(ctx, claim, grant)` | Runs one claim: grant check, claim checks, bounded fetch, one `collector.Result` or a classified failure. |
+| `ClaimedSource.Collect(ctx, claim, grant)` | Runs one claim: delivered-grant check (absent grants proceed), claim checks, bounded fetch, one `collector.Result` or a classified failure. |
 | `grafana.NewHTTPClient(HTTPClientConfig)` | The built-in bounded REST client. Sends the token as a Bearer header; sticks to the three GET endpoints in [Facts](facts.md). |
 | `EvidenceClient` | The seam your tests can fake (`CollectObservedMetadata`). |
 | `MetricsRecorder` / `grafana.DiscardMetrics()` | The seam your host wires to its own signals, or a quiet no-op. |
