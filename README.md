@@ -55,6 +55,7 @@ Package comments in `grafana/doc.go` and `grant/grant.go` are worth a look too. 
 - [eshu](https://github.com/eshu-hq/eshu): core, plus the host that will import this library and own admission, storage, and claims.
 - [eshu-sdk](https://github.com/eshu-hq/eshu-sdk): the collector and fact-schema modules pinned in [the facts reference](docs/reference/facts.md).
 - [eshu-deploy](https://github.com/eshu-hq/eshu-deploy): deployment for Eshu components. This repo publishes its image to GHCR on release tags; the manifest names the component package the deployment consumes.
+- [Collector and Reducer Readiness](https://github.com/eshu-hq/eshu/blob/main/docs/public/reference/collector-reducer-readiness.md), [Start Here](https://github.com/eshu-hq/eshu/blob/main/docs/public/start-here.md), and the 31-repo [Repository Map](https://github.com/eshu-hq/eshu/blob/main/REPOSITORIES.md).
 
 ## Hacking on it
 
